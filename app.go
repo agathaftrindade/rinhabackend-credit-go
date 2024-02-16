@@ -1,15 +1,40 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
 	"rinhadev/api"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 )
 
+func openDB() (*pgxpool.Pool, error) {
+	db_url := os.Getenv("DATABASE_URL")
+
+	return pgxpool.New(context.Background(), db_url)
+}
+
 func main() {
+
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error is occurred  on .env file please check", err)
+		os.Exit(1)
+	}
+
+	dbpool, err := openDB()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer dbpool.Close()
+
 	r := gin.Default()
 
 	accountsService := api.AccountsService{}
@@ -21,6 +46,7 @@ func main() {
 	})
 
 	r.GET("/clients/:id/extrato", func(c *gin.Context) {
+
 		id_param := c.Param("id")
 		accountId, err := strconv.ParseInt(id_param, 10, 64)
 
@@ -45,5 +71,14 @@ func main() {
 		c.JSON(http.StatusOK, statement)
 	})
 
-	r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	// r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+
+	var greeting string
+	err = dbpool.QueryRow(context.Background(), "select 'Hello, world!'").Scan(&greeting)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println(greeting)
 }
