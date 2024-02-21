@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type Account struct {
 	BalanceAmount int64
 	CreditLimit   int64
@@ -7,9 +9,9 @@ type Account struct {
 
 type Transaction struct {
 	Amount          int64
-	TransactionType rune
+	TransactionType string
 	Description     string
-	CreatedAt       string
+	CreatedAt       time.Time
 }
 
 type Statement struct {

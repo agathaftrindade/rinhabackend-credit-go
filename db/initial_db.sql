@@ -2,6 +2,7 @@ create table Accounts(
     Account_ID serial primary key,
     ALimit bigint,
     Balance bigint
+    CHECK (Balance >= -Alimit)
 );
 
 create type Transaction_Type AS ENUM ('c', 'd');
@@ -22,6 +23,13 @@ VALUES
 (2, 80000, 0),
 (3, 1000000, 0),
 (4, 10000000, 0),
-(5, 500000,	0);
+(5, 500000,	0),
+(10, 500000,	10);
 
 SELECT setval('accounts_account_id_seq', (SELECT MAX(Account_ID) FROM Accounts) + 1);
+
+INSERT INTO Transactions
+(account_id, amount, "type", description, createdat)
+VALUES(10, 100, 'c', 'Credito', now());
+
+CREATE INDEX idx_transaction_accounts ON Transactions (Account_ID);

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"rinhadev/api/presenters"
+	"rinhadev/api/services"
 	"strconv"
-
-	"rinhadev/api"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -37,7 +37,8 @@ func main() {
 
 	r := gin.Default()
 
-	accountsService := api.AccountsService{}
+	accountsService := services.NewAccountsService(dbpool)
+	transactionsService := services.NewTransactionsService(dbpool)
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -45,13 +46,15 @@ func main() {
 		})
 	})
 
-	r.GET("/clients/:id/extrato", func(c *gin.Context) {
+	r.GET("/clientes/:id/extrato", func(c *gin.Context) {
 
 		id_param := c.Param("id")
 		accountId, err := strconv.ParseInt(id_param, 10, 64)
 
 		if err != nil {
-			c.Status(http.StatusNotFound)
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": err.Error(),
+			})
 			return
 		}
 
@@ -68,17 +71,51 @@ func main() {
 			return
 		}
 
-		c.JSON(http.StatusOK, statement)
+		c.IndentedJSON(http.StatusOK, presenters.NewStatementShowResponse(*statement))
 	})
 
-	// r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	r.POST("/clientes/:id/transacoes", func(c *gin.Context) {
 
-	var greeting string
-	err = dbpool.QueryRow(context.Background(), "select 'Hello, world!'").Scan(&greeting)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
-		os.Exit(1)
-	}
+		id_param := c.Param("id")
+		accountId, err := strconv.ParseInt(id_param, 10, 64)
 
-	fmt.Println(greeting)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		var payload presenters.TransactionCreateRequest
+		if err := c.ShouldBindJSON(&payload); err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			return
+		}
+
+		balance, err := transactionsService.CreateTransaction(accountId, payload)
+		if err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		if balance == nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		c.JSON(http.StatusOK, presenters.NewTransactionCreateResponse(*balance))
+	})
+
+	r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+
+	// var greeting string
+	// err = dbpool.QueryRow(context.Background(), "select 'Hello, world!'").Scan(&greeting)
+	// if err != nil {
+	// 	fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
+	// 	os.Exit(1)
+	// }
+
+	// fmt.Println(greeting)
 }
